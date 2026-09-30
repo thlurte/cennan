@@ -1,0 +1,8 @@
+build/
+cmake-build-debug/
+compile_commands.json
+.cache/
+weights/
+*.o
+*.a
+*.so
