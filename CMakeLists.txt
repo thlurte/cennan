@@ -21,6 +21,7 @@ endif()
 add_library(cennan_lib
   src/core/tensor.cpp
   src/core/mmap_loader.cpp
+  src/core/norm.cpp
 )
 
 target_include_directories(cennan_lib PUBLIC
