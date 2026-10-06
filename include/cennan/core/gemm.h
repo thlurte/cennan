@@ -27,6 +27,24 @@ inline void gemv_f32(const float *A, const float *x, float *y, size_t M, size_t 
 /// Vectorized AVX2+FMA Dot Product between two vectors of length K
 float dot_f32_avx2(const float *a, const float *b, size_t K);
 
+/// Scalar reference Matrix-Matrix Multiplication: C = A * B
+/// A: [M, K] row-major matrix
+/// B: [K, N] row-major matrix
+/// C: [M, N] row-major output matrix
+void gemm_f32_scalar(const float *A, const float *B, float *C, size_t M, size_t N, size_t K);
+
+/// 2D Register-Blocked AVX2 Matrix-Matrix Multiplication: C = A * B
+/// 4x16 register blocking using 8 YMM accumulators.
+/// A: [M, K] row-major matrix
+/// B: [K, N] row-major matrix
+/// C: [M, N] row-major output matrix
+void gemm_f32_avx2(const float *A, const float *B, float *C, size_t M, size_t N, size_t K);
+
+/// Default GEMM entry point
+inline void gemm_f32(const float *A, const float *B, float *C, size_t M, size_t N, size_t K) {
+  gemm_f32_avx2(A, B, C, M, N, K);
+}
+
 } // namespace cennan
 
 #endif // CENNAN_CORE_GEMM_H

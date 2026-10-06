@@ -109,10 +109,90 @@ void test_gemv_avx2_shapes() {
   std::cout << "✓ GEMV Shape Parity Passed" << std::endl;
 }
 
+void test_gemm_basic_and_identity() {
+  std::cout << "--- Testing GEMM Hand Calculation & Identity ---" << std::endl;
+
+  // Hand-calculated 2x2
+  // A = [1 2; 3 4], B = [5 6; 7 8]
+  // C = [19 22; 43 50]
+  float A[4] = {1.0f, 2.0f, 3.0f, 4.0f};
+  float B[4] = {5.0f, 6.0f, 7.0f, 8.0f};
+  float C[4] = {0.0f};
+
+  cennan::gemm_f32(A, B, C, 2, 2, 2);
+  REQUIRE(std::abs(C[0] - 19.0f) < 1e-5f);
+  REQUIRE(std::abs(C[1] - 22.0f) < 1e-5f);
+  REQUIRE(std::abs(C[2] - 43.0f) < 1e-5f);
+  REQUIRE(std::abs(C[3] - 50.0f) < 1e-5f);
+
+  // Identity test on 32x32
+  const size_t N = 32;
+  std::vector<float> Ident(N * N, 0.0f);
+  for (size_t i = 0; i < N; ++i) Ident[i * N + i] = 1.0f;
+
+  std::vector<float> Mat(N * N);
+  for (size_t i = 0; i < N * N; ++i) Mat[i] = static_cast<float>(i + 1);
+
+  std::vector<float> Out(N * N, 0.0f);
+  cennan::gemm_f32(Mat.data(), Ident.data(), Out.data(), N, N, N);
+
+  for (size_t i = 0; i < N * N; ++i) {
+    REQUIRE(std::abs(Out[i] - Mat[i]) < 1e-4f);
+  }
+
+  std::cout << "✓ GEMM Hand Calculation & Identity Passed" << std::endl;
+}
+
+void test_gemm_2d_blocked_shapes() {
+  std::cout << "--- Testing 2D Register-Blocked GEMM (4x16 unrolled) Shapes ---" << std::endl;
+
+  struct GemmShape {
+    size_t M;
+    size_t N;
+    size_t K;
+  };
+
+  std::vector<GemmShape> shapes = {
+    {4, 16, 32},    // Exact 1 register tile
+    {8, 32, 64},    // 2x2 register tiles
+    {7, 23, 19},    // Uneven odd dimensions exercising all residual paths
+    {1, 64, 128},   // Single row (vector-matrix projection)
+    {32, 1, 128},   // Single column
+    {16, 768, 768}, // Transformer sequence token projection
+    {64, 3072, 768} // MLP Feed-Forward up-projection (64 tokens, d_model=768 -> d_ff=3072)
+  };
+
+  std::mt19937 rng(1337);
+  std::normal_distribution<float> dist(0.0f, 1.0f);
+
+  for (const auto &[M, N, K] : shapes) {
+    std::vector<float> A(M * K);
+    std::vector<float> B(K * N);
+    std::vector<float> C_scalar(M * N, 0.0f);
+    std::vector<float> C_avx2(M * N, 0.0f);
+
+    for (float &val : A) val = dist(rng);
+    for (float &val : B) val = dist(rng);
+
+    cennan::gemm_f32_scalar(A.data(), B.data(), C_scalar.data(), M, N, K);
+    cennan::gemm_f32_avx2(A.data(), B.data(), C_avx2.data(), M, N, K);
+
+    for (size_t i = 0; i < M * N; ++i) {
+      float diff = std::abs(C_avx2[i] - C_scalar[i]);
+      float tol = std::max(1e-3f, std::abs(C_scalar[i]) * 1e-3f);
+      REQUIRE(diff < tol);
+    }
+  }
+
+  std::cout << "✓ 2D Register-Blocked GEMM Parity Passed" << std::endl;
+}
+
 int main() {
   test_dot_product();
   test_gemv_identity();
   test_gemv_avx2_shapes();
+  test_gemm_basic_and_identity();
+  test_gemm_2d_blocked_shapes();
   std::cout << "All GEMM/GEMV tests passed successfully!" << std::endl;
   return 0;
 }
