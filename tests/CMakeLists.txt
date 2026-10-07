@@ -20,3 +20,8 @@ add_test(NAME mmap_loader_tests COMMAND test_mmap_loader)
 add_test(NAME norm_tests COMMAND test_norm)
 add_test(NAME gemm_tests COMMAND test_gemm)
 
+
+add_executable(test_activations test_activations.cpp)
+target_link_libraries(test_activations PRIVATE cennan_lib)
+target_include_directories(test_activations PRIVATE ${CMAKE_SOURCE_DIR}/include)
+add_test(NAME activations_tests COMMAND test_activations)
